@@ -112,17 +112,44 @@ These exclusions are intentional to keep the design transparent, explainable, an
 
 ```text
 .
+├── README.md
+│   Overview, architecture, design decisions, usage
+│
 ├── logs/
 │   └── sample_telco_oss_logs.txt
+│       Sample telco OSS logs (billing, network, SMS, core)
 │
 ├── src/
-│   ├── log_reader.py          # Reads & normalizes raw logs
-│   ├── signal_engine.py       # Converts logs to service-relevant signals
-│   ├── assurance_model.py     # Classifies assurance domain & impact
-│   ├── insight_generator.py   # Human-readable explanations
-│   └── main.py                # Orchestration entry point
+│   ├── log_reader.py
+│   │   Reads raw OSS log files and normalizes them
+│   │
+│   ├── signal_engine.py
+│   │   Transforms logs into service-relevant signals
+│   │   (error bursts, call drops, network degradation)
+│   │
+│   ├── assurance_model.py
+│   │   Maps signals to Service Assurance concepts
+│   │   (fault vs performance, service impact, root-cause likelihood)
+│   │
+│   ├── rag_indexer.py
+│   │   Indexes derived signals into Azure AI Search
+│   │   using Managed Identity (no secrets)
+│   │
+│   ├── rag_chatbot.py
+│   │   Azure AI Foundry RAG query layer
+│   │   Retrieves signals and generates explanations
+│   │
+│   ├── insight_generator.py
+│   │   Produces human-readable assurance summaries
+│   │   (used optionally before LLM reasoning)
+│   │
+│   └── main.py
+│       Orchestrates the end-to-end flow
+│       (logs → signals → index → RAG → insight)
 │
-└── README.md
+└── .gitignore
+    Excludes local files and credentials (no secrets in repo)
+
 ```
 
 # Fact Check
