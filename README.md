@@ -41,4 +41,92 @@ The chatbot **assists engineers** rather than replacing them and always produces
 
 ### High‑Level Architecture Diagram
 
-<img width="4032" height="403" alt="image" src="https://github.com/user-attachments/assets/62c10dbd-2386-4ea4-9e62-df31f9fdba98" />
+<img width="4032" height="658" alt="image" src="https://github.com/user-attachments/assets/9fbffeac-bae5-42b0-9d21-a9e40598dcaf" />
+
+
+# Key Design Decisions
+
+## Why Azure AI Foundry?
+
+- Provides governance, prompt orchestration, and grounding
+- Reduces hallucinations through controlled retrieval
+- Aligns with enterprise cloud and compliance expectations
+
+---
+
+## Why Retrieval‑Augmented Generation (RAG)?
+
+- Logs are treated as **knowledge**, not just events
+- Prevents the model from guessing or inventing causes
+- Improves trust and explainability in Service Assurance environments
+
+---
+
+## Why Keep This POC Small?
+
+- Large AIOps platforms hide architectural decisions
+- A minimal system makes reasoning, trade‑offs, and intent visible
+- This mirrors how early‑stage innovation typically starts in telco environments
+
+---
+
+# Functional Scope
+
+## What This POC Does
+
+- Parses and chunks OSS log files
+- Performs semantic search over logs
+- Answers service‑oriented questions using an LLM
+- Produces explainable Service Assurance insights
+
+---
+
+## What This POC Deliberately Does **NOT** Do
+
+- Real‑time streaming ingestion
+- Automated remediation
+- Full alarm correlation
+- Vendor‑specific behavior modeling
+
+These exclusions are intentional to keep the design transparent, explainable, and interview‑appropriate.
+
+---
+
+# Example Questions Supported
+
+- “What abnormal behavior do you see in these logs?”
+- “Is this a fault or a performance issue?”
+- “Which service layer could be impacted?”
+- “Is this likely a symptom or a root cause?”
+- “What should a Service Assurance engineer investigate next?”
+
+---
+
+# Example Output
+
+> “The logs indicate repeated downstream timeouts leading to delayed SLA monitoring updates. This suggests a performance degradation rather than a hard fault. From a Service Assurance perspective, this issue is likely to impact customer‑facing services if sustained. Further investigation should focus on dependency latency and service topology relationships.”
+
+This style of output is aligned with **OSS Service Assurance workflows**, not generic IT monitoring.
+
+---
+
+# Project Structure
+
+```text
+.
+├── logs/
+│   └── sample_oss_logs.txt
+├── src/
+│   ├── log_parser.py
+│   ├── chunker.py
+│   ├── embeddings.py
+│   ├── vector_index.py
+│   └── chatbot.py
+├── architecture/
+│   └── architecture.png
+├── README.md
+```
+# Fact Check
+Using raw logs directly in RAG does not scale for Tier‑1 telcos due to volume, cost, and noise.
+In my design, logs are pre‑processed into service‑relevant signals, and only those insights are used in RAG.
+Raw logs remain accessible as evidence, not primary knowledge.
