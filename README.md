@@ -41,7 +41,7 @@ The chatbot **assists engineers** rather than replacing them and always produces
 
 ### High‑Level Architecture Diagram
 
-<img width="4032" height="658" alt="image" src="https://github.com/user-attachments/assets/9fbffeac-bae5-42b0-9d21-a9e40598dcaf" />
+<img width="4032" height="591" alt="image" src="https://github.com/user-attachments/assets/bcfe3ffe-543f-4d91-bedf-06a4a49bd75a" />
 
 
 # Key Design Decisions
