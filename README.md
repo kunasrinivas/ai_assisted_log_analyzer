@@ -41,7 +41,7 @@ The chatbot **assists engineers** rather than replacing them and always produces
 
 ### High‑Level Architecture Diagram
 
-<img width="4032" height="658" alt="image" src="https://github.com/user-attachments/assets/9fbffeac-bae5-42b0-9d21-a9e40598dcaf" />
+<img width="4032" height="1080" alt="image" src="https://github.com/user-attachments/assets/9fbffeac-bae5-42b0-9d21-a9e40598dcaf" />
 
 
 # Key Design Decisions
@@ -106,8 +106,6 @@ These exclusions are intentional to keep the design transparent, explainable, an
 
 > “The logs indicate repeated downstream timeouts leading to delayed SLA monitoring updates. This suggests a performance degradation rather than a hard fault. From a Service Assurance perspective, this issue is likely to impact customer‑facing services if sustained. Further investigation should focus on dependency latency and service topology relationships.”
 
-This style of output is aligned with **OSS Service Assurance workflows**, not generic IT monitoring.
-
 ---
 
 # Project Structure
@@ -115,17 +113,18 @@ This style of output is aligned with **OSS Service Assurance workflows**, not ge
 ```text
 .
 ├── logs/
-│   └── sample_oss_logs.txt
+│   └── sample_telco_oss_logs.txt
+│
 ├── src/
-│   ├── log_parser.py
-│   ├── chunker.py
-│   ├── embeddings.py
-│   ├── vector_index.py
-│   └── chatbot.py
-├── architecture/
-│   └── architecture.png
-├── README.md
+│   ├── log_reader.py          # Reads & normalizes raw logs
+│   ├── signal_engine.py       # Converts logs to service-relevant signals
+│   ├── assurance_model.py     # Classifies assurance domain & impact
+│   ├── insight_generator.py   # Human-readable explanations
+│   └── main.py                # Orchestration entry point
+│
+└── README.md
 ```
+
 # Fact Check
 Using raw logs directly in RAG does not scale for Tier‑1 telcos due to volume, cost, and noise.
 In my design, logs are pre‑processed into service‑relevant signals, and only those insights are used in RAG.
