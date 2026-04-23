@@ -14,7 +14,7 @@ def index_signals(signals: List[Dict]) -> None:
     )
 
     documents = [
-        {"id": str(i), "content": str(signal)}
+        {"id": str(i), "signal": str(signal)}
         for i, signal in enumerate(signals)
     ]
 
