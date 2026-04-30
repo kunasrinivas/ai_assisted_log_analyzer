@@ -31,7 +31,8 @@ Derived Service Signals:
 """
             }
         ],
-        temperature=0.2
+        # Favor deterministic outputs for repeated questions in same context.
+        temperature=0.0
     )
     answer = response.choices[0].message.content
     metrics = extract_token_usage(response, model)
@@ -60,7 +61,8 @@ Derived Service Signals:
 """,
             },
         ],
-        temperature=0.2,
+        # Favor deterministic outputs for repeated questions in same context.
+        temperature=0.0,
     )
 
     if getattr(response, "output_text", None):

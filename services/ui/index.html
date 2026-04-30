@@ -209,6 +209,26 @@
         color: var(--warn-ink);
       }
 
+      .cache-indicator {
+        display: inline-block;
+        margin-top: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .01em;
+      }
+      .cache-indicator-hit {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+      }
+      .cache-indicator-miss {
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+      }
+
       /* ── metrics badge ── */
       .metrics-badge {
         display: inline-flex;
@@ -442,6 +462,14 @@
         chatLog.scrollTop = chatLog.scrollHeight;
       }
 
+      function appendCacheIndicator(cacheHit) {
+        const indicator = document.createElement("div");
+        indicator.className = "cache-indicator " + (cacheHit ? "cache-indicator-hit" : "cache-indicator-miss");
+        indicator.textContent = cacheHit ? "Served from cache" : "Fresh response";
+        chatLog.appendChild(indicator);
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+
       function unlockChat() {
         questionInput.disabled = false;
         askBtn.disabled = false;
@@ -528,6 +556,9 @@
 
           if (res.ok) {
             appendBubble(data.answer, "a");
+            if (data.cache_hit !== undefined) {
+              appendCacheIndicator(Boolean(data.cache_hit));
+            }
             // Display token metrics if available
             if (data.tokens) {
               appendMetricsBadge(data.tokens);

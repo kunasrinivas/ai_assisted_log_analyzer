@@ -3,6 +3,7 @@ import json
 import logging
 import time
 import uuid
+import hashlib
 from typing import Any, Dict
 
 import httpx
@@ -28,6 +29,8 @@ REDIS_SOCKET_TIMEOUT = float(os.getenv("REDIS_SOCKET_TIMEOUT", "5.0"))
 REDIS_SOCKET_KEEPALIVE = os.getenv("REDIS_SOCKET_KEEPALIVE", "true").lower() in {"1", "true", "yes", "on"}
 REDIS_MAX_RETRIES = int(os.getenv("REDIS_MAX_RETRIES", "3"))
 REDIS_RETRY_BACKOFF_MS = int(os.getenv("REDIS_RETRY_BACKOFF_MS", "100"))
+CHAT_CACHE_TTL_SECONDS = int(os.getenv("CHAT_CACHE_TTL_SECONDS", "900"))
+MAX_CHAT_CACHE_ITEMS = int(os.getenv("MAX_CHAT_CACHE_ITEMS", "5000"))
 JWT_REQUIRED = os.getenv("JWT_REQUIRED", "false").lower() in {"1", "true", "yes", "on"}
 JWT_SECRET = os.getenv("JWT_SECRET", "")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
@@ -49,6 +52,7 @@ app.add_middleware(
 )
 
 SESSION_CONTEXT: Dict[str, Dict[str, Any]] = {}
+CHAT_CACHE_CONTEXT: Dict[str, Dict[str, Any]] = {}
 REDIS_CLIENT: redis.Redis | None = None
 LOGGER = logging.getLogger("bff")
 if not LOGGER.handlers:
@@ -82,6 +86,59 @@ def _prune_sessions() -> None:
             key=lambda item: float(item[1].get("created_at", now)),
         )[0]
         SESSION_CONTEXT.pop(oldest_session, None)
+
+
+def _prune_chat_cache() -> None:
+    now = time.time()
+    expired = [
+        cache_key
+        for cache_key, value in CHAT_CACHE_CONTEXT.items()
+        if now - float(value.get("created_at", now)) > CHAT_CACHE_TTL_SECONDS
+    ]
+    for cache_key in expired:
+        CHAT_CACHE_CONTEXT.pop(cache_key, None)
+
+    while len(CHAT_CACHE_CONTEXT) > MAX_CHAT_CACHE_ITEMS:
+        oldest_key = min(
+            CHAT_CACHE_CONTEXT.items(),
+            key=lambda item: float(item[1].get("created_at", now)),
+        )[0]
+        CHAT_CACHE_CONTEXT.pop(oldest_key, None)
+
+
+def _normalize_question(question: str) -> str:
+    return " ".join(question.strip().lower().split())
+
+
+def _chat_cache_key(session_id: str, question: str) -> str:
+    normalized = _normalize_question(question)
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return f"chatcache:{session_id}:{digest}"
+
+
+async def _set_chat_cache(session_id: str, question: str, response_payload: Dict[str, Any]) -> None:
+    key = _chat_cache_key(session_id, question)
+    if REDIS_CLIENT is not None:
+        await REDIS_CLIENT.setex(key, CHAT_CACHE_TTL_SECONDS, json.dumps(response_payload))
+        return
+
+    _prune_chat_cache()
+    CHAT_CACHE_CONTEXT[key] = {"created_at": time.time(), "payload": response_payload}
+
+
+async def _get_chat_cache(session_id: str, question: str) -> Dict[str, Any] | None:
+    key = _chat_cache_key(session_id, question)
+    if REDIS_CLIENT is not None:
+        payload = await REDIS_CLIENT.get(key)
+        if not payload:
+            return None
+        return json.loads(payload)
+
+    _prune_chat_cache()
+    cached = CHAT_CACHE_CONTEXT.get(key)
+    if not cached:
+        return None
+    return cached.get("payload")
 
 
 @app.on_event("startup")
@@ -309,6 +366,11 @@ async def chat(payload: ChatPayload, request: Request) -> dict:
     if context is None:
         raise HTTPException(status_code=404, detail="Unknown session_id")
 
+    cached = await _get_chat_cache(payload.session_id, payload.question)
+    if cached is not None:
+        _log_event("chat_cache_hit", correlation_id=correlation_id, session_id=payload.session_id)
+        return {**cached, "cache_hit": True}
+
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
             f"{CHAT_SERVICE_URL}/ask",
@@ -318,5 +380,7 @@ async def chat(payload: ChatPayload, request: Request) -> dict:
 
     if response.status_code != 200:
         raise HTTPException(status_code=502, detail="Chat backend unavailable")
+    response_payload = response.json()
+    await _set_chat_cache(payload.session_id, payload.question, response_payload)
     _log_event("chat_completed", correlation_id=correlation_id, session_id=payload.session_id)
-    return response.json()
+    return {**response_payload, "cache_hit": False}
