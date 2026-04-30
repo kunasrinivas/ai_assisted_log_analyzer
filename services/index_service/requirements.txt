@@ -1,0 +1,4 @@
+fastapi==0.115.6
+uvicorn==0.32.1
+azure-identity==1.21.0
+azure-search-documents==11.5.2

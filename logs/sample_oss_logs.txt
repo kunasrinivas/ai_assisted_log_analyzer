@@ -1,2 +1,53 @@
-# Sample OSS Logs
-This file will contain sample logs for analysis.
+# Telco Sample Logs - Call Detail Records and Network Events
+
+2024-01-15 08:30:15,INFO,CORE_SWITCH_01,Call initiated: +1234567890 -> +0987654321
+2024-01-15 08:30:16,INFO,BILLING_SYSTEM,CDR generated: duration=120s, cost=0.50
+2024-01-15 08:31:45,INFO,CORE_SWITCH_01,Call completed: +1234567890 -> +0987654321
+2024-01-15 08:32:10,WARN,NETWORK_MONITOR,High latency detected on trunk T1-001
+2024-01-15 08:35:22,INFO,SMS_GATEWAY,Message sent: +1234567890 -> +0987654321
+2024-01-15 08:40:15,ERROR,BILLING_SYSTEM,Database connection timeout
+2024-01-15 08:40:16,ERROR,BILLING_SYSTEM,Failed to update CDR for call ID 123456
+2024-01-15 08:40:17,WARN,BILLING_SYSTEM,Retrying database connection (attempt 1/3)
+2024-01-15 08:40:20,INFO,BILLING_SYSTEM,Database connection restored
+2024-01-15 08:45:30,INFO,CORE_SWITCH_01,Call initiated: +1111111111 -> +2222222222
+2024-01-15 08:50:15,INFO,CORE_SWITCH_01,Call completed: +1111111111 -> +2222222222
+2024-01-15 09:00:00,INFO,SYSTEM_HEALTH,Scheduled maintenance check passed
+2024-01-15 09:15:45,WARN,NETWORK_MONITOR,Packet loss detected: 2.5% on interface eth0
+2024-01-15 09:20:10,ERROR,SMS_GATEWAY,Delivery failure: message ID 789012, reason=network_unreachable
+2024-01-15 09:20:11,INFO,SMS_GATEWAY,Retry scheduled for message ID 789012
+2024-01-15 09:25:30,INFO,SMS_GATEWAY,Message delivered successfully after retry
+2024-01-15 09:30:15,INFO,CORE_SWITCH_01,Call initiated: +3333333333 -> +4444444444
+2024-01-15 09:35:20,INFO,CORE_SWITCH_01,Call completed: +3333333333 -> +4444444444
+2024-01-15 09:40:00,ERROR,BILLING_SYSTEM,Rate limit exceeded for customer ID 999888
+2024-01-15 09:40:01,WARN,BILLING_SYSTEM,Throttling applied for 60 seconds
+2024-01-15 09:45:15,INFO,CORE_SWITCH_01,Call initiated: +5555555555 -> +6666666666
+2024-01-15 09:50:30,INFO,CORE_SWITCH_01,Call completed: +5555555555 -> +6666666666
+2024-01-15 10:00:00,INFO,SYSTEM_HEALTH,Memory usage: 75%, CPU usage: 45%
+2024-01-15 10:05:22,WARN,NETWORK_MONITOR,Bandwidth utilization high: 85% on backbone link
+2024-01-15 10:10:15,ERROR,CORE_SWITCH_01,Call dropped: +7777777777 -> +8888888888, reason=congestion
+2024-01-15 10:10:16,INFO,BILLING_SYSTEM,Partial billing applied for dropped call
+2024-01-15 10:15:45,INFO,SMS_GATEWAY,Bulk SMS campaign started: 1000 messages
+2024-01-15 10:20:30,WARN,SMS_GATEWAY,Rate limiting active: 50 messages/minute
+2024-01-15 10:25:15,INFO,SMS_GATEWAY,Bulk SMS campaign completed: 950/1000 delivered
+2024-01-15 10:30:00,ERROR,BILLING_SYSTEM,Database deadlock detected
+2024-01-15 10:30:01,INFO,BILLING_SYSTEM,Automatic deadlock resolution initiated
+2024-01-15 10:30:05,INFO,BILLING_SYSTEM,Deadlock resolved, transaction committed
+2024-01-15 10:35:20,INFO,CORE_SWITCH_01,Call initiated: +9999999999 -> +0000000000
+2024-01-15 10:40:15,INFO,CORE_SWITCH_01,Call completed: +9999999999 -> +0000000000
+2024-01-15 11:00:00,INFO,SYSTEM_HEALTH,Disk space: 60% used, Network I/O normal
+2024-01-15 11:15:30,WARN,NETWORK_MONITOR,Unusual traffic pattern detected from IP 192.168.1.100
+2024-01-15 11:20:45,ERROR,SMS_GATEWAY,Gateway authentication failure
+2024-01-15 11:20:46,WARN,SMS_GATEWAY,Switching to backup gateway
+2024-01-15 11:20:50,INFO,SMS_GATEWAY,Backup gateway activated successfully
+2024-01-15 11:25:15,INFO,SMS_GATEWAY,Primary gateway restored
+2024-01-15 11:30:00,INFO,CORE_SWITCH_01,Peak hour traffic: 500 concurrent calls
+2024-01-15 11:45:20,INFO,CORE_SWITCH_01,Traffic normalized: 200 concurrent calls
+2024-01-15 12:00:00,INFO,SYSTEM_HEALTH,All systems operational
+2024-01-15 12:15:10,WARN,BILLING_SYSTEM,Memory usage high: 90%
+2024-01-15 12:15:11,INFO,BILLING_SYSTEM,Garbage collection initiated
+2024-01-15 12:15:20,INFO,BILLING_SYSTEM,Memory usage normalized: 60%
+2024-01-15 12:30:45,ERROR,CORE_SWITCH_01,Hardware failure: port P1-023 down
+2024-01-15 12:30:46,WARN,NETWORK_MONITOR,Automatic failover initiated
+2024-01-15 12:30:50,INFO,NETWORK_MONITOR,Traffic rerouted to backup port
+2024-01-15 12:35:15,INFO,CORE_SWITCH_01,Port P1-023 restored
+2024-01-15 13:00:00,INFO,SYSTEM_HEALTH,End of day summary: 1500 calls processed, 98.5% success rate

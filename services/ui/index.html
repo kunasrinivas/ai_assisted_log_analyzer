@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OSS Assurance Web Console</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+
+      :root {
+        --bg: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        --card: #ffffff;
+        --ink: #1f2937;
+        --accent: #0f766e;
+        --accent-hover: #0d6460;
+        --accent-disabled: #6b9e9a;
+        --muted: #6b7280;
+        --border: #d1d5db;
+        --error-bg: #fef2f2;
+        --error-ink: #b91c1c;
+        --warn-bg: #fffbeb;
+        --warn-ink: #92400e;
+        --success-bg: #f0fdf4;
+        --success-ink: #166534;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        min-height: 100vh;
+      }
+
+      .shell {
+        max-width: 1100px;
+        margin: 24px auto;
+        padding: 0 16px 40px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.07);
+      }
+
+      h1 { margin: 0 0 6px; font-size: 1.4rem; }
+      h3 { margin: 0 0 14px; font-size: 1rem; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; }
+      p  { margin: 0; color: var(--muted); font-size: .9rem; }
+
+      /* ── file + textarea ── */
+      input[type="file"] {
+        display: block;
+        margin-bottom: 10px;
+        font-size: .875rem;
+        color: var(--muted);
+        width: 100%;
+      }
+
+      textarea {
+        display: block;
+        width: 100%;
+        min-height: 150px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        resize: vertical;
+        font-family: "Courier New", monospace;
+        font-size: .8rem;
+        line-height: 1.5;
+        color: var(--ink);
+        transition: border-color .15s;
+      }
+      textarea:focus { outline: none; border-color: var(--accent); }
+
+      /* ── row layout ── */
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      /* ── buttons ── */
+      button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 10px;
+        padding: 10px 18px;
+        font-size: .875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .15s, opacity .15s;
+        white-space: nowrap;
+      }
+      button:hover:not(:disabled) { background: var(--accent-hover); }
+      button:active:not(:disabled) { opacity: .85; }
+      button:disabled {
+        background: var(--accent-disabled);
+        cursor: not-allowed;
+      }
+
+      /* spinner inside button */
+      .spinner {
+        display: none;
+        width: 14px; height: 14px;
+        border: 2px solid rgba(255,255,255,.4);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin .7s linear infinite;
+      }
+      button.loading .spinner { display: inline-block; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* ── text input ── */
+      input[type="text"] {
+        flex: 1;
+        min-width: 0;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: .875rem;
+        color: var(--ink);
+        transition: border-color .15s;
+      }
+      input[type="text"]:focus { outline: none; border-color: var(--accent); }
+      input[type="text"]:disabled { background: #f9fafb; color: var(--muted); cursor: not-allowed; }
+
+      /* ── status badge ── */
+      .badge {
+        font-size: .75rem;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-weight: 600;
+      }
+      .badge-ok   { background: var(--success-bg); color: var(--success-ink); }
+      .badge-warn { background: var(--warn-bg);    color: var(--warn-ink); }
+
+      /* ── signal output ── */
+      pre {
+        margin-top: 14px;
+        background: #0b1020;
+        color: #e5e7eb;
+        border-radius: 10px;
+        padding: 14px;
+        overflow-x: auto;
+        font-size: .78rem;
+        line-height: 1.6;
+        max-height: 280px;
+        overflow-y: auto;
+        display: none;
+      }
+      pre.visible { display: block; }
+
+      /* ── chat log ── */
+      #chatLog {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 420px;
+        overflow-y: auto;
+        padding-right: 4px;
+        scroll-behavior: smooth;
+      }
+
+      .bubble {
+        padding: 11px 14px;
+        border-radius: 12px;
+        font-size: .875rem;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .bubble-q {
+        background: #ecfeff;
+        border-left: 3px solid #0891b2;
+        align-self: flex-end;
+        max-width: 85%;
+      }
+      .bubble-a {
+        background: #f8fafc;
+        border-left: 3px solid var(--accent);
+        align-self: flex-start;
+        max-width: 90%;
+      }
+      .bubble-thinking {
+        background: #f8fafc;
+        border-left: 3px solid var(--muted);
+        color: var(--muted);
+        font-style: italic;
+      }
+      .bubble-error {
+        background: var(--error-bg);
+        border-left: 3px solid var(--error-ink);
+        color: var(--error-ink);
+      }
+      .bubble-warn {
+        background: var(--warn-bg);
+        border-left: 3px solid #d97706;
+        color: var(--warn-ink);
+      }
+
+      .cache-indicator {
+        display: inline-block;
+        margin-top: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .01em;
+      }
+      .cache-indicator-hit {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+      }
+      .cache-indicator-similar {
+        background: #fefce8;
+        color: #854d0e;
+        border: 1px solid #fde68a;
+      }
+      .cache-indicator-miss {
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+      }
+
+      /* ── metrics badge ── */
+      .metrics-badge {
+        display: inline-flex;
+        gap: 16px;
+        padding: 8px 12px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        font-size: .78rem;
+        margin-top: 8px;
+        flex-wrap: wrap;
+      }
+      .metric-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .metric-label {
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .02em;
+      }
+      .metric-value {
+        color: var(--success-ink);
+        font-weight: 700;
+        font-family: "Courier New", monospace;
+      }
+      .metric-unit {
+        color: var(--muted);
+        font-size: .7rem;
+        font-weight: 400;
+      }
+      .metrics-legend {
+        margin-top: 6px;
+        font-size: .72rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      /* ── notice banner ── */
+      .notice {
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: .82rem;
+        margin-top: 10px;
+      }
+      .notice-warn { background: var(--warn-bg); color: var(--warn-ink); }
+
+      /* ── responsive ── */
+      @media (max-width: 560px) {
+        .shell { padding: 0 10px 32px; }
+        .card  { padding: 14px; }
+        button { width: 100%; justify-content: center; }
+        input[type="text"] { min-width: 100%; }
+        .bubble-q { max-width: 100%; }
+        .bubble-a { max-width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+
+      <!-- header -->
+      <section class="card">
+        <h1>OSS Assurance Web Console</h1>
+        <p>Upload or paste telco OSS logs, extract service signals, then chat with the assurance assistant.</p>
+      </section>
+
+      <!-- step 1: analyze -->
+      <section class="card">
+        <h3>Step 1 — Analyze &amp; Index Logs</h3>
+        <input id="logFile" type="file" accept=".txt,.csv,.log" />
+        <textarea id="rawLogs" placeholder="Or paste CSV logs here:&#10;2024-01-01T00:00:00,ERROR,BILLING_SYSTEM,Database connection timeout"></textarea>
+        <div class="row">
+          <button id="analyzeBtn">
+            <span class="spinner"></span>
+            Analyze and Index
+          </button>
+          <span id="sessionBadge"></span>
+        </div>
+        <pre id="analyzeOutput"></pre>
+      </section>
+
+      <!-- step 2: chat -->
+      <section class="card">
+        <h3>Step 2 — Ask Assurance Question</h3>
+        <div id="chatNotice" class="notice notice-warn" style="display:none">
+          Run Step 1 first to load a log session before asking questions.
+        </div>
+        <div class="row">
+          <input id="question" type="text"
+                 placeholder="What abnormal behavior do you see?"
+                 disabled />
+          <button id="askBtn" disabled>
+            <span class="spinner"></span>
+            Ask
+          </button>
+        </div>
+        <div id="chatLog" style="margin-top:14px"></div>
+      </section>
+
+    </main>
+
+    <script>
+      let sessionId = null;
+
+      const analyzeBtn   = document.getElementById("analyzeBtn");
+      const askBtn       = document.getElementById("askBtn");
+      const analyzeOutput= document.getElementById("analyzeOutput");
+      const sessionBadge = document.getElementById("sessionBadge");
+      const chatLog      = document.getElementById("chatLog");
+      const questionInput= document.getElementById("question");
+      const chatNotice   = document.getElementById("chatNotice");
+
+      // ── helpers ────────────────────────────────────────────────
+      function setLoading(btn, on) {
+        btn.disabled = on;
+        btn.classList.toggle("loading", on);
+      }
+
+      function appendBubble(text, type) {
+        const div = document.createElement("div");
+        div.className = "bubble bubble-" + type;
+        div.textContent = text;
+        chatLog.appendChild(div);
+        chatLog.scrollTop = chatLog.scrollHeight;
+        return div;
+      }
+
+      function formatCost(usd) {
+        if (usd === 0) return "~$0";
+        if (usd < 0.001) {
+          const micro = (usd * 1_000_000).toFixed(1);
+          return `${micro}µ$`;
+        } else if (usd < 1) {
+          const milli = (usd * 1000).toFixed(2);
+          return `${milli}m$`;
+        } else {
+          return `$${usd.toFixed(2)}`;
+        }
+      }
+
+      function getEfficiencyExplanation(ratio) {
+        if (ratio < 0.05) {
+          return "A grade: excellent efficiency (<0.05 tokens/char). Very concise output.";
+        }
+        if (ratio < 0.10) {
+          return "B grade: good efficiency (0.05-0.10 tokens/char). Balanced output.";
+        }
+        if (ratio < 0.15) {
+          return "C grade: fair efficiency (0.10-0.15 tokens/char). Acceptable, but somewhat verbose. Improve by tightening prompts or reducing context.";
+        }
+        if (ratio < 0.25) {
+          return "D grade: poor efficiency (0.15-0.25 tokens/char). Response is likely too verbose.";
+        }
+        return "F grade: very poor efficiency (>0.25 tokens/char). High token usage for answer length.";
+      }
+
+      function getEfficiencyLegend(ratio) {
+        if (ratio < 0.05) return "A: excellent";
+        if (ratio < 0.10) return "B: good";
+        if (ratio < 0.15) return "C: fair";
+        if (ratio < 0.25) return "D: poor";
+        return "F: very poor";
+      }
+
+      function appendMetricsBadge(metricsData) {
+        const badge = document.createElement("div");
+        badge.className = "metrics-badge";
+        let efficiencyExplanation = "";
+        
+        const tokens = metricsData.tokens || {};
+        const cost = metricsData.cost || {};
+        const efficiency = metricsData.efficiency || {};
+        
+        // Token count
+        const tokenItem = document.createElement("div");
+        tokenItem.className = "metric-item";
+        tokenItem.innerHTML = `
+          <span class="metric-label">Tokens</span>
+          <span class="metric-value">${tokens.total || 0}<span class="metric-unit">total</span></span>
+          <span class="metric-unit">${tokens.prompt || 0} in, ${tokens.completion || 0} out</span>
+        `;
+        badge.appendChild(tokenItem);
+        
+        // Cost
+        const costItem = document.createElement("div");
+        costItem.className = "metric-item";
+        costItem.innerHTML = `
+          <span class="metric-label">Cost</span>
+          <span class="metric-value">${formatCost(cost.total_cost_usd || 0)}</span>
+          <span class="metric-unit">${formatCost(cost.input_cost_usd || 0)} in, ${formatCost(cost.output_cost_usd || 0)} out</span>
+        `;
+        badge.appendChild(costItem);
+        
+        // Efficiency
+        if (efficiency.tokens_per_answer_char !== undefined) {
+          const effItem = document.createElement("div");
+          effItem.className = "metric-item";
+          let grade = "N/A";
+          const ratio = efficiency.tokens_per_answer_char;
+          if (ratio < 0.05) grade = "A 🌟";
+          else if (ratio < 0.10) grade = "B ✓";
+          else if (ratio < 0.15) grade = "C";
+          else if (ratio < 0.25) grade = "D";
+          else grade = "F";
+
+          const explanation = getEfficiencyExplanation(ratio);
+          efficiencyExplanation = `${getEfficiencyLegend(ratio)} (${ratio.toFixed(3)} tokens/char, lower is better)`;
+          effItem.title = explanation;
+          effItem.setAttribute("aria-label", explanation);
+          
+          effItem.innerHTML = `
+            <span class="metric-label">Efficiency</span>
+            <span class="metric-value">${grade} <span class="metric-unit" title="${explanation}">(?)</span></span>
+            <span class="metric-unit">${ratio.toFixed(3)} tokens/char</span>
+          `;
+          badge.appendChild(effItem);
+        }
+        
+        chatLog.appendChild(badge);
+
+        if (efficiencyExplanation) {
+          const legend = document.createElement("div");
+          legend.className = "metrics-legend";
+          legend.textContent = `Efficiency guide: ${efficiencyExplanation}`;
+          chatLog.appendChild(legend);
+        }
+
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+
+      function appendCacheIndicator(cacheHit, cacheMatch = "none", cacheSimilarityScore = 0) {
+        const indicator = document.createElement("div");
+        if (!cacheHit) {
+          indicator.className = "cache-indicator cache-indicator-miss";
+          indicator.textContent = "Fresh response";
+        } else if (cacheMatch === "similar") {
+          indicator.className = "cache-indicator cache-indicator-similar";
+          indicator.textContent = `Served from similar cache (${Number(cacheSimilarityScore || 0).toFixed(2)})`;
+        } else {
+          indicator.className = "cache-indicator cache-indicator-hit";
+          indicator.textContent = "Served from exact cache";
+        }
+        chatLog.appendChild(indicator);
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+
+      function unlockChat() {
+        questionInput.disabled = false;
+        askBtn.disabled = false;
+        chatNotice.style.display = "none";
+        questionInput.focus();
+      }
+
+      // ── step 1: analyze ────────────────────────────────────────
+      analyzeBtn.addEventListener("click", runAnalyze);
+
+      async function runAnalyze() {
+        const file    = document.getElementById("logFile").files[0];
+        const rawLogs = document.getElementById("rawLogs").value.trim();
+
+        if (!file && !rawLogs) {
+          analyzeOutput.textContent = "Provide a log file or paste log text before analyzing.";
+          analyzeOutput.classList.add("visible");
+          return;
+        }
+
+        setLoading(analyzeBtn, true);
+        analyzeOutput.classList.remove("visible");
+        sessionBadge.innerHTML = "";
+
+        const form = new FormData();
+        if (file)    form.append("file", file);
+        if (rawLogs) form.append("raw_logs", rawLogs);
+
+        try {
+          const res  = await fetch("/api/analyze-and-index", { method: "POST", body: form });
+          const data = await res.json();
+
+          analyzeOutput.textContent = JSON.stringify(data, null, 2);
+          analyzeOutput.classList.add("visible");
+
+          if (!res.ok) {
+            sessionBadge.innerHTML = `<span class="badge badge-warn">Error ${res.status}</span>`;
+            return;
+          }
+
+          sessionId = data.session_id;
+          sessionBadge.innerHTML = `<span class="badge badge-ok">Session ready</span>`;
+          unlockChat();
+        } catch (err) {
+          analyzeOutput.textContent = "Network error: " + err.message;
+          analyzeOutput.classList.add("visible");
+          sessionBadge.innerHTML = `<span class="badge badge-warn">Failed</span>`;
+        } finally {
+          setLoading(analyzeBtn, false);
+        }
+      }
+
+      // ── step 2: chat ───────────────────────────────────────────
+      askBtn.addEventListener("click", runAsk);
+      questionInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runAsk(); }
+      });
+
+      // guard: show notice if user focuses input before session exists
+      questionInput.addEventListener("focus", () => {
+        if (!sessionId) chatNotice.style.display = "block";
+      });
+
+      async function runAsk() {
+        if (!sessionId) { chatNotice.style.display = "block"; return; }
+        const question = questionInput.value.trim();
+        if (!question) return;
+
+        appendBubble(question, "q");
+        questionInput.value = "";
+        setLoading(askBtn, true);
+        questionInput.disabled = true;
+
+        const thinking = appendBubble("Thinking…", "thinking");
+
+        try {
+          const res  = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId, question }),
+          });
+          const data = await res.json();
+          thinking.remove();
+
+          if (res.ok) {
+            appendBubble(data.answer, "a");
+            if (data.cache_hit !== undefined) {
+              appendCacheIndicator(Boolean(data.cache_hit), data.cache_match, data.cache_similarity_score);
+            }
+            // Display token metrics if available
+            if (data.tokens) {
+              appendMetricsBadge(data.tokens);
+            }
+          } else {
+            appendBubble("Error " + res.status + ": " + (data.detail || JSON.stringify(data)), "error");
+          }
+        } catch (err) {
+          thinking.remove();
+          appendBubble("Network error: " + err.message, "error");
+        } finally {
+          setLoading(askBtn, false);
+          questionInput.disabled = false;
+          questionInput.focus();
+        }
+      }
+    </script>
+  </body>
+</html>

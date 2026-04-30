@@ -1,0 +1,138 @@
+services:
+  ui:
+    build:
+      context: .
+      dockerfile: services/ui/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - bff
+    networks:
+      - appnet
+    user: "101:101"
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:uid=101,gid=101,mode=1777
+      - /var/run:uid=101,gid=101,mode=1777
+      - /tmp:uid=101,gid=101,mode=1777
+    security_opt:
+      - no-new-privileges:true
+
+  bff:
+    build:
+      context: .
+      dockerfile: services/bff/Dockerfile
+    environment:
+      SIGNAL_SERVICE_URL: http://signal-service:8001
+      INDEX_SERVICE_URL: http://index-service:8002
+      CHAT_SERVICE_URL: http://chat-service:8003
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev-internal-token}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      MAX_FILE_BYTES: ${MAX_FILE_BYTES:-5242880}
+      MAX_RAW_LOG_CHARS: ${MAX_RAW_LOG_CHARS:-500000}
+      MAX_QUESTION_CHARS: ${MAX_QUESTION_CHARS:-2000}
+      MAX_SESSIONS: ${MAX_SESSIONS:-1000}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-3600}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_SOCKET_CONNECT_TIMEOUT: ${REDIS_SOCKET_CONNECT_TIMEOUT:-5.0}
+      REDIS_SOCKET_TIMEOUT: ${REDIS_SOCKET_TIMEOUT:-5.0}
+      REDIS_SOCKET_KEEPALIVE: ${REDIS_SOCKET_KEEPALIVE:-true}
+      REDIS_MAX_RETRIES: ${REDIS_MAX_RETRIES:-3}
+      REDIS_RETRY_BACKOFF_MS: ${REDIS_RETRY_BACKOFF_MS:-100}
+      BFF_API_KEY: ${BFF_API_KEY:-}
+      JWT_REQUIRED: ${JWT_REQUIRED:-false}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ISSUER: ${JWT_ISSUER:-}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-}
+    ports:
+      - "8010:8000"
+    depends_on:
+      - redis
+      - signal-service
+      - index-service
+      - chat-service
+    networks:
+      - appnet
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  signal-service:
+    build:
+      context: .
+      dockerfile: services/signal_service/Dockerfile
+    environment:
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev-internal-token}
+      MAX_FILE_BYTES: ${MAX_FILE_BYTES:-5242880}
+      MAX_RAW_LOG_CHARS: ${MAX_RAW_LOG_CHARS:-500000}
+    networks:
+      - appnet
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  index-service:
+    build:
+      context: .
+      dockerfile: services/index_service/Dockerfile
+    env_file:
+      - .env
+    environment:
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev-internal-token}
+    networks:
+      - appnet
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  chat-service:
+    build:
+      context: .
+      dockerfile: services/chat_service/Dockerfile
+    env_file:
+      - .env
+    environment:
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev-internal-token}
+    networks:
+      - appnet
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - appnet
+    read_only: true
+    tmpfs:
+      - /data
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+networks:
+  appnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
