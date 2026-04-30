@@ -182,7 +182,50 @@ This output is suitable for:
 
 ---
 
-## Step 8: Run the Full Pipeline
+## Step 8: View Token Usage & Cost Metrics
+
+**Module**: `src/token_cost_tracker.py`
+
+After the LLM generates a response, token usage metrics are automatically captured and displayed, including:
+
+- **Tokens**: Number of input tokens (prompt) and output tokens (completion) consumed
+- **Cost**: Automatic USD calculation based on the model's pricing tier
+- **Efficiency**: Grade A-F based on how concisely the model answered
+- **Context Balance**: Ratio of input to output tokens (ideal: 1-2 range)
+
+In the **web GUI**, metrics appear in a badge below each answer:
+
+```
+┌─ TOKENS ───────────┬─ COST ──────────┬─ EFFICIENCY ────┐
+│ 275 total          │ 2.1m$           │ C (0.173)        │
+│ 203 in, 72 out     │ Input: 1.0µ$    │ Optimal context  │
+│                    │ Output: 1.1µ$   │ (2.82:1 ratio)   │
+└────────────────────┴─────────────────┴──────────────────┘
+```
+
+**Cost Format Reference**:
+- `µ$` = Microunits ($0.0001) — single responses
+- `m$` = Milliunits ($0.001) — typical responses
+- `$` = Dollars ($1.00) — high-volume usage
+
+**Efficiency Grades**:
+- **A 🌟** (< 0.05 tokens/char): Excellent, very concise
+- **B ✓** (0.05-0.10): Good, balanced
+- **C** (0.10-0.15): Fair, acceptable
+- **D** (0.15-0.25): Poor, verbose
+- **F** (> 0.25): Very poor, wasting tokens
+
+Use these metrics to:
+- Understand LLM costs in real-time
+- Identify which questions are most efficient
+- Optimize system prompts to reduce verbosity
+- Compare model costs (e.g., gpt-4o vs gpt-4o-mini)
+
+For detailed guidance, see [TOKEN_QUICK_REFERENCE.md](TOKEN_QUICK_REFERENCE.md).
+
+---
+
+## Step 9: Run the Full Pipeline (CLI Mode)
 
 Execute the end‑to‑end flow using:
 
