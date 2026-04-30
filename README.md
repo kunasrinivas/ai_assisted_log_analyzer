@@ -12,6 +12,33 @@ This project is intentionally minimal and realistic, suitable for discussion in 
 
 ---
 
+## Screenshots
+
+> All screenshots are taken from the live running application (Docker Compose stack on localhost).
+
+### 1 · Landing Page — Empty State
+![Landing page](docs/screenshots/01_landing_page.png)
+
+### 2 · Logs Pasted — Ready to Analyze
+![Logs pasted](docs/screenshots/02_logs_pasted.png)
+
+### 3 · Analyze & Index Complete
+![Analyze complete](docs/screenshots/03_analyze_complete.png)
+
+### 4 · First Question — Fresh LLM Response
+![Fresh response](docs/screenshots/04_chat_fresh_response.png)
+
+### 5 · Same Question Again — Exact Cache Hit
+![Exact cache hit](docs/screenshots/05_chat_exact_cache_hit.png)
+
+### 6 · Paraphrased Question — Similar Intent Cache Hit
+![Similar cache hit](docs/screenshots/06_chat_similar_cache_hit.png)
+
+### 7 · Token Cost & Efficiency Metrics
+![Token metrics](docs/screenshots/07_token_cost_metrics.png)
+
+---
+
 ## Problem Statement
 
 Traditional OSS monitoring tools generate large volumes of logs and alarms, but Service Assurance engineers still need to:
