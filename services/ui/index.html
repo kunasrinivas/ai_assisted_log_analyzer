@@ -242,6 +242,12 @@
         font-size: .7rem;
         font-weight: 400;
       }
+      .metrics-legend {
+        margin-top: 6px;
+        font-size: .72rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
 
       /* ── notice banner ── */
       .notice {
@@ -346,9 +352,34 @@
         }
       }
 
+      function getEfficiencyExplanation(ratio) {
+        if (ratio < 0.05) {
+          return "A grade: excellent efficiency (<0.05 tokens/char). Very concise output.";
+        }
+        if (ratio < 0.10) {
+          return "B grade: good efficiency (0.05-0.10 tokens/char). Balanced output.";
+        }
+        if (ratio < 0.15) {
+          return "C grade: fair efficiency (0.10-0.15 tokens/char). Acceptable, but somewhat verbose. Improve by tightening prompts or reducing context.";
+        }
+        if (ratio < 0.25) {
+          return "D grade: poor efficiency (0.15-0.25 tokens/char). Response is likely too verbose.";
+        }
+        return "F grade: very poor efficiency (>0.25 tokens/char). High token usage for answer length.";
+      }
+
+      function getEfficiencyLegend(ratio) {
+        if (ratio < 0.05) return "A: excellent";
+        if (ratio < 0.10) return "B: good";
+        if (ratio < 0.15) return "C: fair";
+        if (ratio < 0.25) return "D: poor";
+        return "F: very poor";
+      }
+
       function appendMetricsBadge(metricsData) {
         const badge = document.createElement("div");
         badge.className = "metrics-badge";
+        let efficiencyExplanation = "";
         
         const tokens = metricsData.tokens || {};
         const cost = metricsData.cost || {};
@@ -385,16 +416,29 @@
           else if (ratio < 0.15) grade = "C";
           else if (ratio < 0.25) grade = "D";
           else grade = "F";
+
+          const explanation = getEfficiencyExplanation(ratio);
+          efficiencyExplanation = `${getEfficiencyLegend(ratio)} (${ratio.toFixed(3)} tokens/char, lower is better)`;
+          effItem.title = explanation;
+          effItem.setAttribute("aria-label", explanation);
           
           effItem.innerHTML = `
             <span class="metric-label">Efficiency</span>
-            <span class="metric-value">${grade}</span>
+            <span class="metric-value">${grade} <span class="metric-unit" title="${explanation}">(?)</span></span>
             <span class="metric-unit">${ratio.toFixed(3)} tokens/char</span>
           `;
           badge.appendChild(effItem);
         }
         
         chatLog.appendChild(badge);
+
+        if (efficiencyExplanation) {
+          const legend = document.createElement("div");
+          legend.className = "metrics-legend";
+          legend.textContent = `Efficiency guide: ${efficiencyExplanation}`;
+          chatLog.appendChild(legend);
+        }
+
         chatLog.scrollTop = chatLog.scrollHeight;
       }
 
