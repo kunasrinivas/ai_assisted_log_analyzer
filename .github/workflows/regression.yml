@@ -1,0 +1,27 @@
+name: Regression Tests
+
+on:
+  pull_request:
+  push:
+    branches: [ main, dev ]
+
+jobs:
+  unit-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies required for unit tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install fastapi httpx pydantic redis pyjwt
+
+      - name: Run cache/intent regression tests
+        run: |
+          python -m unittest tests/test_cache_logic.py -v

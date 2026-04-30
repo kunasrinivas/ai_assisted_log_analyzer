@@ -172,7 +172,7 @@ Elaboration = answer_length_chars / question_length_chars
 Enable logging and store token metrics:
 
 ```bash
-wsl docker compose logs chat-service | grep token_usage
+docker compose logs chat-service | grep token_usage
 ```
 
 Log output example:

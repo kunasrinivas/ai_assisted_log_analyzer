@@ -1,7 +1,7 @@
 # Web GUI + Microservice Setup
 
 ## Prerequisites
-- WSL2 with Ubuntu 24.04 (no Docker Desktop required)
+- Docker Engine + Docker Compose v2
 - Existing .env in repository root with Azure settings already used by the CLI app
 
 Required env vars:
@@ -18,21 +18,23 @@ wsl bash scripts/wsl2_docker_setup.sh
 ```
 
 ## Build and Run
-From PowerShell (calls into WSL2):
-
-```powershell
-wsl bash scripts/run.sh        # build images and start all services
-wsl bash scripts/run.sh down   # stop everything
-wsl bash scripts/run.sh logs   # tail logs
-```
-
-Or directly inside a WSL2 shell:
+Use Docker Compose directly:
 
 ```bash
-bash scripts/run.sh
+docker compose up --build -d    # build images and start all services
+docker compose down             # stop everything
+docker compose logs -f          # tail logs
 ```
 
-WSL2 automatically forwards ports to Windows localhost, so no extra configuration is needed.
+Or use the helper script (cross-shell wrapper around Docker Compose):
+
+```bash
+bash scripts/run.sh up
+bash scripts/run.sh down
+bash scripts/run.sh logs
+```
+
+If you use WSL2, Docker can still run there; the commands above remain the same.
 
 ## Open the UI
 - http://localhost:8080

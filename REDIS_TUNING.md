@@ -151,14 +151,13 @@ redis-server --save "" --appendonly no --maxmemory 512mb --maxmemory-policy allk
 ## Monitoring Commands
 
 ```bash
-# Inside WSL terminal:
-wsl docker compose exec redis redis-cli INFO server
-wsl docker compose exec redis redis-cli INFO memory
-wsl docker compose exec redis redis-cli DBSIZE
-wsl docker compose exec redis redis-cli KEYS 'session:*' | wc -l
+docker compose exec redis redis-cli INFO server
+docker compose exec redis redis-cli INFO memory
+docker compose exec redis redis-cli DBSIZE
+docker compose exec redis redis-cli KEYS 'session:*' | wc -l
 
 # View BFF logs for Redis events:
-wsl docker compose logs bff | grep redis
+docker compose logs bff | grep redis
 ```
 
 ---

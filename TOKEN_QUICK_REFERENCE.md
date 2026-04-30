@@ -159,7 +159,7 @@ gpt-35-turbo   $0.40         $12             400.0µ$
 ### Commands to Check
 ```bash
 # View token metrics in logs
-wsl docker compose logs chat-service | grep token_usage
+docker compose logs chat-service | grep token_usage
 
 # Get usage summary (future)
 curl http://localhost:8010/api/usage-summary?session_id=abc123

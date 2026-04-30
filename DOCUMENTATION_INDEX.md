@@ -35,7 +35,7 @@
 
 **...run the web GUI locally**
 1. Start: [WEB_GUI_SETUP.md](WEB_GUI_SETUP.md) (2 min setup)
-2. Run: `wsl bash scripts/run.sh`
+2. Run: `docker compose up --build -d` (or `bash scripts/run.sh up`)
 3. Open: http://localhost:8080
 4. Learn: [TOKEN_QUICK_REFERENCE.md](TOKEN_QUICK_REFERENCE.md) (what those metrics mean)
 
@@ -52,7 +52,7 @@
 **...configure Redis and session storage**
 1. Read: [REDIS_TUNING.md](REDIS_TUNING.md)
 2. Update `.env` or `docker-compose.yml`
-3. Restart: `wsl bash scripts/run.sh down; wsl bash scripts/run.sh`
+3. Restart: `docker compose down; docker compose up --build -d`
 
 **...deploy to production**
 1. Read: [ARCHITECTURE.md](ARCHITECTURE.md) → "Production Hardening" section
@@ -170,7 +170,7 @@
    - JWT auth (JWT_REQUIRED=true)
    - API key (BFF_API_KEY)
    - Session TTL (SESSION_TTL_SECONDS)
-3. Run: wsl bash scripts/run.sh
+3. Run: docker compose up --build -d (or bash scripts/run.sh up)
 4. Test: Health check, analyze, chat
 5. Monitor: Token metrics logged in docker compose logs
 ```
@@ -216,7 +216,7 @@
 1. [README.md](README.md) (5 min) — Get the big picture
 2. [WEB_GUI_SETUP.md](WEB_GUI_SETUP.md) (5 min) — Set up locally
 3. [TOKEN_QUICK_REFERENCE.md](TOKEN_QUICK_REFERENCE.md) (5 min) — Understand metrics
-4. Try it: `wsl bash scripts/run.sh` → http://localhost:8080
+4. Try it: `docker compose up --build -d` → http://localhost:8080
 5. Experiment: Ask questions, see metrics badges
 
 **For Deep Dive** (2 hours total):

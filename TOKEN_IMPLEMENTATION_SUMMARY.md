@@ -288,14 +288,14 @@ python token_tracking_demo.py
 Shows 5 scenarios with real metrics and efficiency grades.
 
 ### Test Live in GUI
-1. `wsl bash scripts/run.sh` (if not running)
+1. `docker compose up --build -d` (if not running)
 2. Visit `http://localhost:8080`
 3. Paste sample logs and ask a question
 4. See metrics badge appear below answer
 
 ### Check Logs
 ```bash
-wsl docker compose logs chat-service | grep token_usage
+docker compose logs chat-service | grep token_usage
 ```
 
 Output example:
