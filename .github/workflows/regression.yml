@@ -25,8 +25,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install fastapi httpx pydantic redis pyjwt
 
+      - name: Verify test imports
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -c "import services.bff.main; print('import OK')"
+
       - name: Run cache/intent regression tests
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          python -m unittest tests/test_cache_logic.py -v
+          python -m unittest tests.test_cache_logic -v
