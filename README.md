@@ -20,95 +20,91 @@ Traditional OSS monitoring tools generate large volumes of logs and alarms, but 
 - Spend significant time reading logs instead of reasoning about services
 
 Rule‑based or threshold‑based systems can detect anomalies, but they **do not explain** what the issue means from a **service assurance perspective**.
+flowchart TB
+  subgraph C1["Client Experience Boundary"]
+    User["Operator / Recruiter Demo Viewer"]
+    UI["UI Service\nNginx + Web App"]
+    User --> UI
+  end
 
----
+  subgraph C2["API Gateway and State Boundary"]
+    BFF["BFF API\nFastAPI"]
+    Cache["Semantic Cache\nExact + Similar Intent"]
+    Redis["Session Store\nRedis (fallback memory)"]
+  end
 
-## Solution Approach
+  subgraph C3["Microservices Processing Boundary"]
+    Signal["Signal Service\nParse + Signal Extraction"]
+    Index["Index Service\nIndexing Pipeline"]
+    Chat["Chat Service\nRAG + Answer Generation"]
+    Tracker["Token Cost Tracker\nCost + Efficiency Metrics"]
+  end
 
-This POC demonstrates how an **LLM‑powered chatbot**, grounded using **Azure AI Foundry + Retrieval‑Augmented Generation (RAG)**, can:
+  subgraph C4["Azure Intelligence Boundary"]
+    Search["Azure AI Search"]
+    OpenAI["Azure OpenAI"]
+  end
 
-- Analyze OSS logs semantically
-- Identify abnormal behavior
-- Classify the issue in Service Assurance terms
-- Explain potential service impact
-- Suggest next investigation steps
+  UI -->|"1. Analyze logs\nPOST /api/analyze-and-index"| BFF
+  BFF -->|"2. Parse + classify"| Signal
+  Signal -->|"3. Derived signals"| Index
+  Index -->|"4. Persist retrieval index"| Search
 
-The chatbot **assists engineers** rather than replacing them and always produces **explainable, domain‑aware output**.
+  UI -->|"5. Ask assurance question\nPOST /api/chat"| BFF
+  BFF -->|"6. Check semantic cache"| Cache
+  Cache -->|"7a. Cache hit"| BFF
+  Cache -->|"7b. Cache miss"| Chat
 
----
+  BFF <-->|"Session context\nread/write"| Redis
+  Chat -->|"8. Retrieve context"| Search
+  Chat -->|"9. LLM inference"| OpenAI
+  OpenAI -->|"10. Answer + usage"| Chat
+  Chat -->|"11. Token accounting"| Tracker
+  Tracker -->|"12. Metrics payload"| BFF
+  BFF -->|"13. Answer + cache status + metrics"| UI
 
-## Architecture
+  BFF -.->|"correlation-id"| Signal
+  BFF -.->|"correlation-id"| Index
+  BFF -.->|"correlation-id"| Chat
 
-### Complete System Architecture
+  classDef exp fill:#e0f2fe,stroke:#0369a1,stroke-width:2px,color:#0f172a;
+  classDef edge fill:#ede9fe,stroke:#6d28d9,stroke-width:2px,color:#0f172a;
+  classDef core fill:#dcfce7,stroke:#166534,stroke-width:2px,color:#0f172a;
+  classDef cloud fill:#fff7ed,stroke:#c2410c,stroke-width:2px,color:#0f172a;
 
-```mermaid
-graph TB
-    User["🖥️ User Browser"]
-    Nginx["Nginx<br/>Reverse Proxy<br/>Port 8080"]
-    
-    subgraph "Web Layer"
-        UI["Static Web UI<br/>(HTML/CSS/JS)<br/>Metrics Badge"]
-    end
-    
-    subgraph "API Gateway & Session Layer"
-        BFF["🔗 BFF<br/>(FastAPI)<br/>Port 8010<br/>Session Management<br/>Correlation IDs"]
-        Redis["🗃️ Redis<br/>Session Storage<br/>TTL: 3600s"]
-    end
-    
-    subgraph "Microservices Layer"
-        Signal["📊 Signal Service<br/>Log Parsing<br/>Signal Extraction<br/>Assurance Classification"]
-        Index["🔍 Index Service<br/>Signal Indexing<br/>Vector Storage"]
-        Chat["💬 Chat Service<br/>RAG Integration<br/>Token Extraction<br/>Cost Calculation"]
-    end
-    
-    subgraph "External Services"
-        AzureSearch["🔗 Azure AI Search<br/>Signal Index<br/>Semantic Retrieval"]
-        AzureOpenAI["🧠 Azure OpenAI<br/>GPT-4o / GPT-4o-mini<br/>LLM Reasoning"]
-    end
-    
-    subgraph "Token Tracking Layer"
-        TokenTracker["📈 Token Cost Tracker<br/>• Extract token counts<br/>• Calculate USD cost<br/>• Grade efficiency A-F<br/>• Format display"]
-    end
-    
-    User -->|"HTTP/WS"| Nginx
-    Nginx --> UI
-    UI -->|"POST /api/analyze-and-index"| BFF
-    UI -->|"POST /api/chat"| BFF
-    UI -->|"x-correlation-id"| BFF
-    
-    BFF -->|"session_id"| Redis
-    Redis -->|"store/retrieve"| BFF
-    
-    BFF -->|"parse logs"| Signal
-    BFF -->|"index signals"| Index
-    BFF -->|"chat question"| Chat
-    
-    Signal -->|"signals"| Index
-    Index -->|"index"| AzureSearch
-    Chat -->|"retrieve signals"| AzureSearch
-    Chat -->|"LLM request"| AzureOpenAI
-    AzureOpenAI -->|"response + tokens"| Chat
-    
-    Chat -->|"extract tokens"| TokenTracker
-    TokenTracker -->|"metrics"| BFF
-    BFF -->|"response + tokens"| UI
-    UI -->|"render badge"| User
-    
-    BFF -.->|"correlation_id"| Signal
-    BFF -.->|"correlation_id"| Index
-    BFF -.->|"correlation_id"| Chat
-    
-    classDef userLayer fill:#e1f5ff,stroke:#01579b,stroke-width:2px
-    classDef apiLayer fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef serviceLayer fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    classDef externalLayer fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef trackingLayer fill:#fce4ec,stroke:#880e4f,stroke-width:2px
-    
-    class User userLayer
-    class Nginx,BFF,Redis apiLayer
-    class Signal,Index,Chat serviceLayer
-    class AzureSearch,AzureOpenAI externalLayer
-    class TokenTracker trackingLayer
+  class User,UI exp;
+  class BFF,Cache,Redis edge;
+  class Signal,Index,Chat,Tracker core;
+  class Search,OpenAI cloud;
+  OpenAI -->|"Answer + usage"| Chat
+
+### Why This Architecture Gets Attention
+
+- **Clear Microservice Separation**: Ingestion, indexing, chat, and cost observability are isolated services with explicit contracts.
+- **Production-Like Control Plane**: BFF enforces sessioning, semantic caching, auth hooks, and cross-service correlation IDs.
+- **Cost-Aware AI Engineering**: Token usage, cost, and efficiency are first-class outputs, not afterthought logs.
+- **Demo-Ready Storytelling**: The numbered flow maps directly to a live walkthrough for interviews and portfolio reviews.
+  Chat -->|"Token/cost metrics"| Tracker
+  Tracker -->|"metrics"| BFF
+  BFF -->|"Answer + cache + metrics"| UI
+
+  %% ---------- Observability ----------
+  BFF -. "x-correlation-id" .-> Signal
+  BFF -. "x-correlation-id" .-> Index
+  BFF -. "x-correlation-id" .-> Chat
+
+  %% ---------- Visual styling ----------
+  classDef client fill:#e6f4ff,stroke:#0b5fff,stroke-width:2px,color:#0f172a;
+  classDef web fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#0f172a;
+  classDef bff fill:#f5f3ff,stroke:#6d28d9,stroke-width:2px,color:#0f172a;
+  classDef svc fill:#ecfdf3,stroke:#15803d,stroke-width:2px,color:#0f172a;
+  classDef azure fill:#fff7ed,stroke:#c2410c,stroke-width:2px,color:#0f172a;
+
+  class User client;
+  class UI web;
+  class BFF,Redis,Cache bff;
+  class Signal,Index,Chat,Tracker svc;
+  class Search,OpenAI azure;
 ```
 
 ### Architecture Components
@@ -119,6 +115,7 @@ graph TB
 **API Gateway & Session Layer** (Purple)
 - **BFF (Backend-for-Frontend)**: FastAPI gateway that orchestrates microservices, manages sessions via Redis, and propagates correlation IDs for distributed tracing
 - **Redis**: Session storage with automatic TTL (default 3600 seconds); provides memory-efficient session management and fallback to in-memory if unavailable
+- **Semantic Cache**: Session-aware response cache with exact and intent-similar matching to improve repeatability and response latency
 
 **Microservices Layer** (Green)
 - **Signal Service**: Parses raw OSS logs, extracts domain-specific signals, and classifies assurance relevance
@@ -135,6 +132,10 @@ graph TB
 **Observability** (Dashed lines)
 - **Correlation IDs**: Propagated via `x-correlation-id` header across all services for distributed tracing and audit logging
 - **Structured Logging**: All services emit JSON events (analyze_completed, index_completed, chat_completed, chat_fallback) with correlation IDs and token metrics
+
+**Cache Observability**
+- **Cache Metadata**: Chat API responses include `cache_hit`, `cache_match` (`exact` or `similar`), and `cache_similarity_score`
+- **UI Indicator**: Chat answers display cache status as `Fresh response`, `Served from exact cache`, or `Served from similar cache (score)`
 
 ---
 
@@ -209,6 +210,29 @@ This transparency helps teams:
 - Track usage trends over time
 
 For detailed guidance, see [TOKEN_QUICK_REFERENCE.md](TOKEN_QUICK_REFERENCE.md) or [TOKEN_TRACKING_GUIDE.md](TOKEN_TRACKING_GUIDE.md).
+
+---
+# Response Caching & Intent Matching
+
+The chat flow now supports **session-scoped semantic caching**:
+
+- **Exact Cache Match**: Same normalized question in the same session returns cached answer immediately.
+- **Similar Cache Match**: Intent-similar paraphrases can reuse cached answers when similarity exceeds threshold.
+- **Fresh Response**: On cache miss, BFF forwards to chat-service and stores the answer for future reuse.
+
+Default behavior:
+- `cache_hit=false` for first question
+- `cache_hit=true, cache_match=exact` for exact repeats
+- `cache_hit=true, cache_match=similar` for paraphrased repeats
+
+Tunable settings:
+- `CHAT_CACHE_TTL_SECONDS` (default 900)
+- `CHAT_SIMILARITY_THRESHOLD` (default 0.30)
+
+Benefits:
+- More stable answers for repeated questions
+- Lower latency for follow-up asks
+- Reduced token spend for repeated and paraphrased queries
 
 ---
 # Example Questions Supported

@@ -4,6 +4,7 @@ import logging
 import time
 import uuid
 import hashlib
+import re
 from typing import Any, Dict
 
 import httpx
@@ -31,6 +32,7 @@ REDIS_MAX_RETRIES = int(os.getenv("REDIS_MAX_RETRIES", "3"))
 REDIS_RETRY_BACKOFF_MS = int(os.getenv("REDIS_RETRY_BACKOFF_MS", "100"))
 CHAT_CACHE_TTL_SECONDS = int(os.getenv("CHAT_CACHE_TTL_SECONDS", "900"))
 MAX_CHAT_CACHE_ITEMS = int(os.getenv("MAX_CHAT_CACHE_ITEMS", "5000"))
+CHAT_SIMILARITY_THRESHOLD = float(os.getenv("CHAT_SIMILARITY_THRESHOLD", "0.30"))
 JWT_REQUIRED = os.getenv("JWT_REQUIRED", "false").lower() in {"1", "true", "yes", "on"}
 JWT_SECRET = os.getenv("JWT_SECRET", "")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
@@ -110,6 +112,56 @@ def _normalize_question(question: str) -> str:
     return " ".join(question.strip().lower().split())
 
 
+STOP_WORDS = {
+    "a", "an", "the", "is", "are", "am", "to", "of", "in", "on", "for", "and", "or",
+    "what", "which", "how", "why", "can", "could", "would", "should", "do", "does", "did",
+    "this", "that", "these", "those", "with", "from", "about", "there", "here", "see", "any",
+    "you", "we", "i", "it", "me", "my", "our", "your", "their", "logs", "log", "present",
+}
+
+TOKEN_SYNONYMS = {
+    "abnormal": "anomaly",
+    "abnormality": "anomaly",
+    "anomalies": "anomaly",
+    "unusual": "anomaly",
+    "issue": "problem",
+    "issues": "problem",
+    "errors": "error",
+    "failures": "failure",
+    "behaviour": "behavior",
+    "degradation": "degrade",
+    "degraded": "degrade",
+    "impacting": "impact",
+    "impacted": "impact",
+}
+
+
+def _tokenize_intent(question: str) -> list[str]:
+    words = re.findall(r"[a-z0-9]+", _normalize_question(question))
+    intent_tokens: list[str] = []
+    for word in words:
+        if word in STOP_WORDS:
+            continue
+        canonical = TOKEN_SYNONYMS.get(word, word)
+        if len(canonical) < 3:
+            continue
+        intent_tokens.append(canonical)
+    # Keep stable ordering while deduplicating.
+    return list(dict.fromkeys(intent_tokens))
+
+
+def _intent_similarity(tokens_a: list[str], tokens_b: list[str]) -> float:
+    if not tokens_a or not tokens_b:
+        return 0.0
+    a = set(tokens_a)
+    b = set(tokens_b)
+    intersection = len(a & b)
+    union = len(a | b)
+    if union == 0:
+        return 0.0
+    return intersection / union
+
+
 def _chat_cache_key(session_id: str, question: str) -> str:
     normalized = _normalize_question(question)
     digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
@@ -118,12 +170,59 @@ def _chat_cache_key(session_id: str, question: str) -> str:
 
 async def _set_chat_cache(session_id: str, question: str, response_payload: Dict[str, Any]) -> None:
     key = _chat_cache_key(session_id, question)
+    normalized = _normalize_question(question)
+    intent_tokens = _tokenize_intent(question)
+    entry = {
+        "q": normalized,
+        "tokens": intent_tokens,
+        "payload": response_payload,
+        "created_at": time.time(),
+    }
+
     if REDIS_CLIENT is not None:
         await REDIS_CLIENT.setex(key, CHAT_CACHE_TTL_SECONDS, json.dumps(response_payload))
+        index_key = f"chatcache-index:{session_id}"
+        raw = await REDIS_CLIENT.get(index_key)
+        index_entries = json.loads(raw) if raw else []
+        index_entries.append(entry)
+        # Keep only newest N entries to bound lookup cost.
+        index_entries = index_entries[-100:]
+        await REDIS_CLIENT.setex(index_key, CHAT_CACHE_TTL_SECONDS, json.dumps(index_entries))
         return
 
     _prune_chat_cache()
-    CHAT_CACHE_CONTEXT[key] = {"created_at": time.time(), "payload": response_payload}
+    CHAT_CACHE_CONTEXT[key] = entry
+
+
+async def _get_similar_chat_cache(session_id: str, question: str) -> tuple[Dict[str, Any] | None, float]:
+    query_tokens = _tokenize_intent(question)
+    best_payload: Dict[str, Any] | None = None
+    best_score = 0.0
+
+    if REDIS_CLIENT is not None:
+        index_key = f"chatcache-index:{session_id}"
+        raw = await REDIS_CLIENT.get(index_key)
+        if not raw:
+            return None, 0.0
+        entries = json.loads(raw)
+    else:
+        _prune_chat_cache()
+        prefix = f"chatcache:{session_id}:"
+        entries = [
+            value
+            for cache_key, value in CHAT_CACHE_CONTEXT.items()
+            if cache_key.startswith(prefix)
+        ]
+
+    for entry in entries:
+        score = _intent_similarity(query_tokens, entry.get("tokens", []))
+        if score > best_score:
+            best_score = score
+            best_payload = entry.get("payload")
+
+    if best_payload is None or best_score < CHAT_SIMILARITY_THRESHOLD:
+        return None, best_score
+    return best_payload, best_score
 
 
 async def _get_chat_cache(session_id: str, question: str) -> Dict[str, Any] | None:
@@ -369,7 +468,22 @@ async def chat(payload: ChatPayload, request: Request) -> dict:
     cached = await _get_chat_cache(payload.session_id, payload.question)
     if cached is not None:
         _log_event("chat_cache_hit", correlation_id=correlation_id, session_id=payload.session_id)
-        return {**cached, "cache_hit": True}
+        return {**cached, "cache_hit": True, "cache_match": "exact", "cache_similarity_score": 1.0}
+
+    similar_cached, similar_score = await _get_similar_chat_cache(payload.session_id, payload.question)
+    if similar_cached is not None:
+        _log_event(
+            "chat_cache_similar_hit",
+            correlation_id=correlation_id,
+            session_id=payload.session_id,
+            similarity=round(similar_score, 3),
+        )
+        return {
+            **similar_cached,
+            "cache_hit": True,
+            "cache_match": "similar",
+            "cache_similarity_score": round(similar_score, 3),
+        }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
@@ -383,4 +497,9 @@ async def chat(payload: ChatPayload, request: Request) -> dict:
     response_payload = response.json()
     await _set_chat_cache(payload.session_id, payload.question, response_payload)
     _log_event("chat_completed", correlation_id=correlation_id, session_id=payload.session_id)
-    return {**response_payload, "cache_hit": False}
+    return {
+        **response_payload,
+        "cache_hit": False,
+        "cache_match": "none",
+        "cache_similarity_score": 0.0,
+    }
