@@ -80,10 +80,17 @@ flowchart TB
 
 ### Why This Architecture Gets Attention
 
-- **Clear Microservice Separation**: Ingestion, indexing, chat, and cost observability are isolated services with explicit contracts.
-- **Production-Like Control Plane**: BFF enforces sessioning, semantic caching, auth hooks, and cross-service correlation IDs.
-- **Cost-Aware AI Engineering**: Token usage, cost, and efficiency are first-class outputs, not afterthought logs.
-- **Demo-Ready Storytelling**: The numbered flow maps directly to a live walkthrough for interviews and portfolio reviews.
+
+### Demo Script Narrative (2-Minute Walkthrough)
+
+1. **Open the web console** and explain that this PoC is a microservice-based OSS assurance assistant, not a monolithic chatbot.
+2. **Paste sample OSS logs** and click Analyze and Index.
+3. **Highlight the backend flow**: BFF orchestrates signal extraction, indexing, and session context management.
+4. **Ask the first assurance question** (for example, "What abnormal behavior do you see?") and show a fresh LLM response.
+5. **Point out cost transparency**: token count, USD cost, and efficiency grade are displayed immediately.
+6. **Ask the same (or similar) question again** and show semantic cache behavior (exact/similar cache hit).
+7. **Call out engineering maturity**: correlation IDs, cache metadata, deterministic output strategy, and secure container boundaries.
+8. **Close with business value**: faster analyst triage, lower token cost, and explainable AI-assisted assurance outcomes.
   Chat -->|"Token/cost metrics"| Tracker
   Tracker -->|"metrics"| BFF
   BFF -->|"Answer + cache + metrics"| UI
@@ -256,42 +263,57 @@ Benefits:
 ```text
 .
 ├── README.md
-│   Overview, architecture, design decisions, usage
+├── LICENSE
+├── usage.md
+├── ARCHITECTURE.md
+├── WEB_GUI_SETUP.md
+├── REDIS_TUNING.md
+├── TOKEN_TRACKING_GUIDE.md
+├── TOKEN_IMPLEMENTATION_SUMMARY.md
+├── TOKEN_QUICK_REFERENCE.md
+├── DOCUMENTATION_INDEX.md
+├── docker-compose.yml
+├── .env.tuning.example
+├── token_tracking_demo.py
 │
 ├── logs/
-│   └── sample_telco_oss_logs.txt
-│       Sample telco OSS logs (billing, network, SMS, core)
+│   └── sample_oss_logs.txt
 │
-├── src/
-│   ├── log_reader.py
-│   │   Reads raw OSS log files and normalizes them
-│   │
-│   ├── signal_engine.py
-│   │   Transforms logs into service-relevant signals
-│   │   (error bursts, call drops, network degradation)
-│   │
-│   ├── assurance_model.py
-│   │   Maps signals to Service Assurance concepts
-│   │   (fault vs performance, service impact, root-cause likelihood)
-│   │
-│   ├── rag_indexer.py
-│   │   Indexes derived signals into Azure AI Search
-│   │   using Managed Identity (no secrets)
-│   │
-│   ├── rag_chatbot.py
-│   │   Azure AI Foundry RAG query layer
-│   │   Retrieves signals and generates explanations
-│   │
-│   ├── insight_generator.py
-│   │   Produces human-readable assurance summaries
-│   │   (used optionally before LLM reasoning)
-│   │
-│   └── main.py
-│       Orchestrates the end-to-end flow
-│       (logs → signals → index → RAG → insight)
+├── scripts/
+│   ├── run.sh
+│   └── wsl2_docker_setup.sh
 │
-└── .gitignore
-    Excludes local files and credentials (no secrets in repo)
+├── services/
+│   ├── ui/
+│   │   ├── Dockerfile
+│   │   ├── index.html
+│   │   └── nginx.conf
+│   ├── bff/
+│   │   ├── Dockerfile
+│   │   ├── main.py
+│   │   └── requirements.txt
+│   ├── signal_service/
+│   │   ├── Dockerfile
+│   │   ├── main.py
+│   │   └── requirements.txt
+│   ├── index_service/
+│   │   ├── Dockerfile
+│   │   ├── main.py
+│   │   └── requirements.txt
+│   └── chat_service/
+│       ├── Dockerfile
+│       ├── main.py
+│       └── requirements.txt
+│
+└── src/
+  ├── log_reader.py
+  ├── signal_engine.py
+  ├── assurance_model.py
+  ├── rag_indexer.py
+  ├── rag_chatbot.py
+  ├── token_cost_tracker.py
+  ├── insight_generator.py
+  └── main.py
 
 ```
 
