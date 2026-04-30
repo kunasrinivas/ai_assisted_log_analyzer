@@ -32,7 +32,7 @@ REDIS_MAX_RETRIES = int(os.getenv("REDIS_MAX_RETRIES", "3"))
 REDIS_RETRY_BACKOFF_MS = int(os.getenv("REDIS_RETRY_BACKOFF_MS", "100"))
 CHAT_CACHE_TTL_SECONDS = int(os.getenv("CHAT_CACHE_TTL_SECONDS", "900"))
 MAX_CHAT_CACHE_ITEMS = int(os.getenv("MAX_CHAT_CACHE_ITEMS", "5000"))
-CHAT_SIMILARITY_THRESHOLD = float(os.getenv("CHAT_SIMILARITY_THRESHOLD", "0.30"))
+CHAT_SIMILARITY_THRESHOLD = float(os.getenv("CHAT_SIMILARITY_THRESHOLD", "0.50"))
 JWT_REQUIRED = os.getenv("JWT_REQUIRED", "false").lower() in {"1", "true", "yes", "on"}
 JWT_SECRET = os.getenv("JWT_SECRET", "")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
@@ -135,15 +135,44 @@ TOKEN_SYNONYMS = {
     "impacted": "impact",
 }
 
+_NEGATION_WORDS = {"not", "no", "never", "without", "none", "neither"}
+
+_TEMPORAL_PARAM_WORDS = {
+    "yesterday", "today", "tomorrow", "morning", "afternoon",
+    "evening", "night", "midnight", "noon",
+}
+
+_PARAM_RE = re.compile(
+    r"\b\d{1,2}:\d{2}(?::\d{2})?\b"          # HH:MM or HH:MM:SS
+    r"|\b\d+\s*(?:am|pm)\b"                   # 9am, 11 pm
+    r"|\b\d{4}[-/]\d{2}[-/]\d{2}\b"           # YYYY-MM-DD
+    r"|\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b"     # MM/DD/YYYY
+    r"|\b\d{1,3}(?:\.\d{1,3}){3}\b"           # IP addresses
+    r"|\b\d+\b",                               # standalone numbers
+    re.IGNORECASE,
+)
+
+
+def _extract_params(question: str) -> list[str]:
+    """Extract concrete parameter values (numbers, times, dates, IPs, temporal
+    words) from a question.  Two questions with identical intent but different
+    parameters must NOT share a cache entry."""
+    normalized = _normalize_question(question)
+    params = _PARAM_RE.findall(normalized)
+    result = [" ".join(p.split()) for p in params]
+    words = set(re.findall(r"[a-z]+", normalized))
+    result.extend(sorted(words & _TEMPORAL_PARAM_WORDS))
+    return sorted(set(result))
+
 
 def _tokenize_intent(question: str) -> list[str]:
     words = re.findall(r"[a-z0-9]+", _normalize_question(question))
     intent_tokens: list[str] = []
     for word in words:
-        if word in STOP_WORDS:
+        if word in STOP_WORDS and word not in _NEGATION_WORDS:
             continue
         canonical = TOKEN_SYNONYMS.get(word, word)
-        if len(canonical) < 3:
+        if len(canonical) < 3 and word not in _NEGATION_WORDS:
             continue
         intent_tokens.append(canonical)
     # Keep stable ordering while deduplicating.
@@ -172,9 +201,11 @@ async def _set_chat_cache(session_id: str, question: str, response_payload: Dict
     key = _chat_cache_key(session_id, question)
     normalized = _normalize_question(question)
     intent_tokens = _tokenize_intent(question)
+    params = _extract_params(question)
     entry = {
         "q": normalized,
         "tokens": intent_tokens,
+        "params": params,
         "payload": response_payload,
         "created_at": time.time(),
     }
@@ -196,6 +227,7 @@ async def _set_chat_cache(session_id: str, question: str, response_payload: Dict
 
 async def _get_similar_chat_cache(session_id: str, question: str) -> tuple[Dict[str, Any] | None, float]:
     query_tokens = _tokenize_intent(question)
+    query_params = _extract_params(question)
     best_payload: Dict[str, Any] | None = None
     best_score = 0.0
 
@@ -215,6 +247,12 @@ async def _get_similar_chat_cache(session_id: str, question: str) -> tuple[Dict[
         ]
 
     for entry in entries:
+        # Parameters (numbers, times, dates, IPs, temporal words) must
+        # match exactly — otherwise the questions target different data
+        # even when their intent tokens are similar.
+        entry_params = entry.get("params", [])
+        if entry_params != query_params:
+            continue
         score = _intent_similarity(query_tokens, entry.get("tokens", []))
         if score > best_score:
             best_score = score
